@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPC Chat Test Frontend</title>
+    <!-- 引入KaTeX样式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #input-container {
+            margin-bottom: 20px;
+        }
+        #input-container input,
+        #input-container select,
+        #input-container button {
+            margin-right: 10px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        #response-output {
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 200px;
+        }
+        .math-block {
+            margin: 1em 0;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        .katex { 
+            font-size: 1.1em !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="请输入你的问题">
+        <select id="call-mode">
+            <option value="local">本地调用</option>
+            <option value="cloud">云调用</option>
+        </select>
+        <button id="send-request">发送请求</button>
+    </div>
+    <div id="response-output"></div>
+
+    <!-- 正确的库引入顺序 -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <script>
+        // 全局声明
+        let renderMathInElement = window.renderMathInElement;
+        
+        const userInput = document.getElementById('user-input');
+        const callModeSelect = document.getElementById('call-mode');
+        const sendRequestButton = document.getElementById('send-request');
+        const responseOutput = document.getElementById('response-output');
+
+        // KaTeX配置
+        const katexOptions = {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false,
+            strict: false
+        };
+
+        // 初始化页面加载时的公式渲染
+        document.addEventListener('DOMContentLoaded', () => {
+            if (renderMathInElement) {
+                renderMathInElement(document.body, katexOptions);
+            }
+        });
+
+        sendRequestButton.addEventListener('click', async () => {
+            const input = userInput.value;
+            const callMode = callModeSelect.value;
+
+            if (!input) {
+                alert('请输入问题');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://172.16.49.232:8080/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        msg: input,
+                        modelType: callMode
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let currentOutput = document.createElement('div');
+                responseOutput.appendChild(currentOutput);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        setTimeout(() => {
+                            if (renderMathInElement) {
+                                renderMathInElement(responseOutput, katexOptions);
+                            }
+                        }, 100);
+                        break;
+                    }
+
+                    const textChunk = decoder.decode(value, { stream: true });
+                    for (const char of textChunk) {
+                        if (char === '\n') {
+                            currentOutput = document.createElement('div');
+                            responseOutput.appendChild(currentOutput);
+                        } else {
+                            currentOutput.textContent += char;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 30));
+                    }
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                responseOutput.innerHTML += `<div style="color: red">请求出错: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
