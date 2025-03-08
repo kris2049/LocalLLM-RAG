@@ -1,0 +1,60 @@
+# config.yaml
+ragflow:
+  api:
+    url: "http://localhost:8081"
+    key: "ragflow-A1ODAxNjdhZjdkMzExZWY5NTkxMDI0Mm"
+  knowledge_base:
+    default_name: "user_knowledge_base"
+    embedding_model: "bge-m3"
+  
+  chunk_settings:
+    method: "naive"
+    chunk_size: 1024
+    overlap: 200
+    max_tokens: 1500
+
+  retrieval:
+    top_k: 1024
+    top_n: 3
+    similarity_threshold: 0.2
+    vector_similarity_weight: 0.3
+    rerank_id: null
+    keyword: false
+    dataset_ids: ["3bcd7476fbb511ef8a120242ac150006","1464d2c8fb2c11efaabd0242ac150006"]
+    file_ids: ["bf9ec90efbb411efbe7e0242ac150006","4505309cfbb511ef97d80242ac150006"]
+    prompt: |
+      你是一个智能助手，请总结知识库的内容来回答问题，回答需要考虑聊天历史。
+      当所有知识库内容都与问题无关时，你的回答必须包含“知识库中未找到您要的答案！”。
+      
+      以下是知识库：
+      {knowledge}
+
+
+model:
+  local:
+    name: "deepseek-r1:1.5b"
+    ollama_url: "http://localhost:11434"
+  cloud:
+    name: "deepseek-r1-distill-llama-8b"
+    api_key: "sk-1dbfce0b4ba142ec82211358d077639b"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+file:
+  upload_dir: "RAGKnowledgeFiles/"
+  allowed_ext:
+    - "pdf"
+    - "docx"
+    - "txt"
+    - "md"
+    - "html"
+    - "csv"
+    - "pptx"
+    - "xlsx"
+  parser:
+    ocr_langs: ["chi_sim", "eng"]
+    extract_tables: true
+
+system:
+  debug: true
+  max_file_size: 104857600  # 100MB in bytes
+  session_timeout: 3600
