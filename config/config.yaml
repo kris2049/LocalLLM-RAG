@@ -9,22 +9,22 @@ ragflow:
   
   chunk_settings:
     method: "naive"
-    chunk_size: 1024
-    overlap: 200
-    max_tokens: 1500
+    chunk_size: 128
+    delimiter: "\\n!?;。；！？"
+    layout_recognize: True
+    raptor: True
+    embedding_model: "BAAI/bge-large-zh-v1.5"
 
   retrieval:
-    top_k: 1024
-    top_n: 3
+    top_k: 1024    # 送入rerank模型的块数
+    top_n: 3       # 返回给大模型的块数
     similarity_threshold: 0.2
     vector_similarity_weight: 0.3
-    rerank_id: null
+    rerank_id: "BAAI/bge-reranker-v2-m3"
     keyword: false
-    dataset_ids: ["3bcd7476fbb511ef8a120242ac150006","1464d2c8fb2c11efaabd0242ac150006"]
-    file_ids: ["bf9ec90efbb411efbe7e0242ac150006","4505309cfbb511ef97d80242ac150006"]
     prompt: |
       你是一个智能助手，请总结知识库的内容来回答问题，回答需要考虑聊天历史。
-      当所有知识库内容都与问题无关时，你的回答必须包含“知识库中未找到您要的答案！”。
+      当无法从知识库中找到答案时，你的回答必须包含“知识库中未找到您要的答案！”。
       
       以下是知识库：
       {knowledge}
@@ -32,12 +32,15 @@ ragflow:
 
 model:
   local:
-    name: "deepseek-r1:1.5b"
-    ollama_url: "http://localhost:11434"
+    name: "deepseek-r1:14b"
+    ollama_url: "http://172.16.49.9:11434"
   cloud:
-    name: "deepseek-r1-distill-llama-8b"
-    api_key: "sk-1dbfce0b4ba142ec82211358d077639b"
+    name: "deepseek-r1-distill-llama-14b"
+    api_key: ""
     base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  siliconflow: 
+    url: "https://api.siliconflow.cn/v1/models"
+    api_key: "sk-dtcvqqclowpyohjskwebkbxcsokfjuvathgponlfvcumqsij"
 
 file:
   upload_dir: "RAGKnowledgeFiles/"
@@ -53,6 +56,23 @@ file:
   parser:
     ocr_langs: ["chi_sim", "eng"]
     extract_tables: true
+
+database:
+  host: 172.16.49.81:3306
+  username: "root"
+  password: "root"
+  llm: "deepseek-r1:14b"
+  db_name: "shh-safety-monitor-his"
+
+  rag_flow_mysql_host: localhost
+  rag_flow_mysql_port: 5455
+  rag_flow_mysql_username: "root"
+  rag_flow_mysql_password: "infini_rag_flow"
+  rag_flow_mysql_db_name: "rag_flow"
+
+  redis_url: localhost:6379/0
+  redis_pwd: "infini_rag_flow"
+
 
 system:
   debug: true

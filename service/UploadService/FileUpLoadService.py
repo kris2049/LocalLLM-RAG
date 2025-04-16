@@ -4,10 +4,9 @@ from typing import List
 import uuid
 # from ruamel.yaml import YAML
 
-from flask import logging
 import requests
 from service.RAGFlowService import RAGFlowClient
-from config.config import FileConfig
+from config.config_loader import config
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 
@@ -18,7 +17,7 @@ class FileUpLoadService:
     def __init__(self):
         self.ragflow = RAGFlowClient.RAGFlowClient()
         self.file_kb_mapping = {}  # 文件与知识库映射关系 {filename: kb_id}
-        self.upload_folder = FileConfig.UPLOAD_FOLDER
+        self.upload_folder = config.file.upload_dir
 
     # def _load_chunker_config(self):
     #      yaml = YAML
@@ -27,6 +26,7 @@ class FileUpLoadService:
 
     def _save_file(self, file: FileStorage, filename: str) -> str:
         """安全保存文件到磁盘"""
+        print("===================================="+file.filename)
         safe_name = secure_filename(filename)
         save_path = os.path.join(self.upload_folder, safe_name)
         file.save(save_path)
@@ -43,10 +43,9 @@ class FileUpLoadService:
                 raise Exception(f"创建数据集 {kb_name}失败")
             return dataset
         except Exception as e:
-             logging.error(f"创建数据集时出现异常： {str(e)}")
              return None
 
-    def upload_file(self, file: FileStorage, dataset_id: int):
+    def upload_file(self, file: FileStorage, dataset_id: str):
         try:
             dataset = self.ragflow.client.list_datasets(id=dataset_id)[0]
 
@@ -83,11 +82,11 @@ class FileUpLoadService:
                 return {'status': 'error', 'message': str(e)}, 500
         
 
-    def list_datasets(self) -> List[dict]:
-        return self.ragflow.list_datasets()
+    def list_datasets(self,name,page,per_page) -> tuple[list, str, int]:
+        return self.ragflow.list_datasets(name,page,per_page)
           
-    def list_files(self,dataset_id) -> List[dict]:
-        return self.ragflow.list_files(dataset_id)
+    def list_files(self,dataset_id, name,page,per_page) -> tuple[list, str, int]:
+        return self.ragflow.list_files(dataset_id,name,page,per_page)
     
     # def select_datasets(self) -> List[str]:
         

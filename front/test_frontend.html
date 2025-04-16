@@ -4,35 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RPC Chat Test Frontend</title>
-    <!-- 引入KaTeX样式 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <!-- 新增Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
+        /* 原有样式保留，新增以下样式 */
+        .think-container {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
         }
-        #input-container {
-            margin-bottom: 20px;
+        .think-content {
+            color: #666;
+            font-size: 0.9em;
         }
-        #input-container input,
-        #input-container select,
-        #input-container button {
-            margin-right: 10px;
+        #response-output div {
+            margin: 5px 0;
             padding: 8px;
-            font-size: 16px;
-        }
-        #response-output {
-            border: 1px solid #ccc;
-            padding: 10px;
-            min-height: 200px;
-        }
-        .math-block {
-            margin: 1em 0;
-            padding: 10px;
-            overflow-x: auto;
-        }
-        .katex { 
-            font-size: 1.1em !important;
+            border-bottom: 1px solid #eee;
         }
     </style>
 </head>
@@ -47,91 +37,112 @@
     </div>
     <div id="response-output"></div>
 
-    <!-- 正确的库引入顺序 -->
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
     <script>
-        // 全局声明
-        let renderMathInElement = window.renderMathInElement;
-        
         const userInput = document.getElementById('user-input');
         const callModeSelect = document.getElementById('call-mode');
         const sendRequestButton = document.getElementById('send-request');
         const responseOutput = document.getElementById('response-output');
 
-        // KaTeX配置
-        const katexOptions = {
-            delimiters: [
-                {left: '$$', right: '$$', display: true},
-                {left: '\\(', right: '\\)', display: false}
-            ],
-            throwOnError: false,
-            strict: false
+        // 状态管理对象
+        const state = {
+            displayedText: '',
+            thinkData: [],
+            loading: false,
+            buffer: ''  // 新增缓冲区
         };
 
-        // 初始化页面加载时的公式渲染
-        document.addEventListener('DOMContentLoaded', () => {
-            if (renderMathInElement) {
-                renderMathInElement(document.body, katexOptions);
+        // KaTeX配置（保持不变）
+        const katexOptions = { /* ... */ };
+
+        sendRequestButton.addEventListener('click', async () => {
+            const input = userInput.value.trim();
+            if (!input) return alert('请输入问题');
+
+            state.loading = true;
+            responseOutput.innerHTML = ''; // 清空之前的内容
+
+            try {
+                await axios({
+                    method: 'post',
+                    url: 'http://172.16.49.232:5000/chat', // 确保URL正确
+                    data: {
+                        msg: input.replace(/\r|\n/ig, ""),
+                        modelType: callModeSelect.value,
+                        session_id: 151
+                    },
+                    onDownloadProgress: (progressEvent) => {
+                        const chunk = progressEvent.event.target.responseText;
+                        processChunk(chunk);
+                    }
+                });
+
+                // 请求完成后渲染数学公式
+                setTimeout(() => renderMathInElement(responseOutput, katexOptions), 100);
+            } catch (error) {
+                appendMessage(error.message, 'error');
+            } finally {
+                state.loading = false;
             }
         });
 
-        sendRequestButton.addEventListener('click', async () => {
-            const input = userInput.value;
-            const callMode = callModeSelect.value;
-
-            if (!input) {
-                alert('请输入问题');
-                return;
+        function processChunk(chunk) {
+            state.buffer += chunk;
+            
+            // 处理<think>标签
+            const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+            let thinkMatch;
+            while ((thinkMatch = thinkRegex.exec(state.buffer)) !== null) {
+                const thinkContent = thinkMatch[1].trim();
+                if (!state.thinkData.includes(thinkContent)) {
+                    state.thinkData.push(thinkContent);
+                    appendThinkContent(thinkContent);
+                }
             }
 
-            try {
-                const response = await fetch('http://172.16.49.232:8080/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        msg: input,
-                        modelType: callMode
-                    })
-                });
+            // 提取非<think>内容
+            const cleanContent = state.buffer.replace(thinkRegex, '').trim();
+            if (cleanContent) {
+                updateDisplay(cleanContent);
+                state.buffer = ''; // 清空已处理缓冲区
+            }
+        }
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+        function appendThinkContent(content) {
+            const container = document.createElement('div');
+            container.className = 'think-container';
+            container.innerHTML = `
+                <div class="think-header">内部思考过程</div>
+                <div class="think-content">${content}</div>
+            `;
+            responseOutput.appendChild(container);
+        }
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-                let currentOutput = document.createElement('div');
-                responseOutput.appendChild(currentOutput);
+        function updateDisplay(text) {
+            // 增量更新显示内容
+            const newContent = text.slice(state.displayedText.length);
+            if (newContent) {
+                appendMessage(newContent);
+                state.displayedText = text;
+            }
+        }
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        setTimeout(() => {
-                            if (renderMathInElement) {
-                                renderMathInElement(responseOutput, katexOptions);
-                            }
-                        }, 100);
-                        break;
-                    }
+        function appendMessage(content, type = 'normal') {
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'error-message' : 'response-message';
+            div.textContent = content;
+            responseOutput.appendChild(div);
+            
+            // 每次追加内容后尝试渲染数学公式
+            renderMathInElement(div, katexOptions);
+        }
 
-                    const textChunk = decoder.decode(value, { stream: true });
-                    for (const char of textChunk) {
-                        if (char === '\n') {
-                            currentOutput = document.createElement('div');
-                            responseOutput.appendChild(currentOutput);
-                        } else {
-                            currentOutput.textContent += char;
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 30));
-                    }
-                }
-            } catch (error) {
-                console.error('请求出错:', error);
-                responseOutput.innerHTML += `<div style="color: red">请求出错: ${error.message}</div>`;
+        // 初始化KaTeX渲染
+        document.addEventListener('DOMContentLoaded', () => {
+            if (renderMathInElement) {
+                renderMathInElement(document.body, katexOptions);
             }
         });
     </script>

@@ -51,6 +51,11 @@ class ConfigLoader:
         """系统配置的命名空间访问器"""
         return self._config.system
 
+    @property
+    def database(self):
+        """系统配置的命名空间访问器"""
+        return self._config.database
+
 # 全局配置实例化
 config = ConfigLoader()
 
